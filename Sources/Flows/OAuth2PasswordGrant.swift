@@ -225,36 +225,41 @@ open class OAuth2PasswordGrant: OAuth2 {
 	- parameter params: Optional key/value pairs to pass during authorization
 	- parameter callback: The callback to call after the request has returned
 	*/
-	public func obtainAccessToken(params: OAuth2StringDict? = nil, callback: @escaping ((_ params: OAuth2JSON?, _ error: OAuth2Error?) -> Void)) {
-		do {
-			let post = try accessTokenRequest(params: params).asURLRequest(for: self)
-			logger?.debug("OAuth2", msg: "Requesting new access token from \(post.url?.description ?? "nil")")
-			
-			perform(request: post) { response in
-				do {
-					let data = try response.responseData()
-					let dict = try self.parseAccessTokenResponse(data: data)
-					if response.response.statusCode >= 400 {
-						throw OAuth2Error.generic("Failed with status \(response.response.statusCode)")
-					}
-					self.logger?.debug("OAuth2", msg: "Did get access token [\(nil != self.clientConfig.accessToken)]")
-					callback(dict, nil)
-				}
-				catch OAuth2Error.unauthorizedClient {     // TODO: which one is it?
-					callback(nil, OAuth2Error.wrongUsernamePassword)
-				}
-				catch OAuth2Error.forbidden {              // TODO: which one is it?
-					callback(nil, OAuth2Error.wrongUsernamePassword)
-				}
-				catch let error {
-					self.logger?.debug("OAuth2", msg: "Error obtaining access token: \(error)")
-					callback(nil, error.asOAuth2Error)
-				}
-			}
-		}
-		catch {
-			callback(nil, error.asOAuth2Error)
-		}
-	}
+    public func obtainAccessToken(params: OAuth2StringDict? = nil, callback: @escaping ((_ params: OAuth2JSON?, _ error: OAuth2Error?) -> Void)) {
+        do {
+            let post = try accessTokenRequest(params: params).asURLRequest(for: self)
+            logger?.debug("OAuth2", msg: "Requesting new access token from \(post.url?.description ?? "nil")")
+            
+            perform(request: post) { response in
+                do {
+                    let data = try response.responseData()
+                    let dict = try self.parseAccessTokenResponse(data: data)
+                    if response.response.statusCode >= 400 {
+                        throw OAuth2Error.generic("Failed with status \(response.response.statusCode)")
+                    }
+                    self.logger?.debug("OAuth2", msg: "Did get access token [\(nil != self.clientConfig.accessToken)]")
+                    callback(dict, nil)
+                }
+                catch OAuth2Error.unauthorizedClient {     // TODO: which one is it?
+                    callback(nil, OAuth2Error.wrongUsernamePassword)
+                }
+                catch OAuth2Error.forbidden {              // TODO: which one is it?
+                    callback(nil, OAuth2Error.wrongUsernamePassword)
+                }
+                    
+                catch OAuth2Error.expiredPassword(let msg) {
+                    callback(nil, OAuth2Error.expiredPassword(msg))
+                }
+                    
+                catch let error {
+                    self.logger?.debug("OAuth2", msg: "Error obtaining access token: \(error)")
+                    callback(nil, error.asOAuth2Error)
+                }
+            }
+        }
+        catch {
+            callback(nil, error.asOAuth2Error)
+        }
+    }
 }
 
